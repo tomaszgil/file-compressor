@@ -74,7 +74,7 @@ class Compressor {
     console.log('Successfully encoded!\n');
   }
 
-  decode() {
+  decode(outputName) {
     console.log("Decoding...\n");
     const tailLength = this._bytes[0];
     let data = '';
@@ -105,10 +105,12 @@ class Compressor {
       }
     }
 
-    console.log(`Decoded text: \n${decoded}`);
+    fs.writeFileSync(outputName, decoded);
+    console.log(`Decoded text fragment: \n${decoded.slice(0, 300)}...`);
   }
 
   save(fileName, codeFileName) {
+    console.log("Saving files...");
     this._saveCode(codeFileName);
     this._saveEncoded(fileName);
     console.log(`Encoded file: ${fileName}`);
@@ -116,8 +118,10 @@ class Compressor {
   }
 
   load(encodedFileName, codeFileName) {
+    console.log("Loading files...");
     this._loadCode(codeFileName);
     this._loadEncoded(encodedFileName);
+    console.log("Files loaded.\n");
   }
 
   _saveCode(fileName) {
