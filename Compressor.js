@@ -70,9 +70,12 @@ class Compressor {
       const chunk = data.slice(i, i + tailLength);
       this._bytes[j] = new BitArray(tailLength, chunk).toNumber();
     }
+
+    console.log('Successfully encoded!\n');
   }
 
   decode() {
+    console.log("Decoding...\n");
     const tailLength = this._bytes[0];
     let data = '';
     let decoded = '';
@@ -87,14 +90,18 @@ class Compressor {
       data += new BitArray(tailLength, this._bytes[this._bytes.length - 1]).toString();
     }
 
-    console.log(data);
+    const reversedCode = {};
+    for (let key in this._code) {
+      if (this._code.hasOwnProperty(key)) {
+        const value = this._code[key].toString();
+        reversedCode[value] = key;
+      }
+    }
+
     for (let i = 0; i < data.length; i += this._code.size) {
       const chunk = data.slice(i, i + this._code.size);
-      for (let key in this._code) {
-        if (this._code.hasOwnProperty(key)) {
-          if (this._code[key].toString() === chunk)
-            decoded += key;
-        }
+      if (reversedCode.hasOwnProperty(chunk)) {
+        decoded += reversedCode[chunk];
       }
     }
 
@@ -145,7 +152,7 @@ class Compressor {
   }
 
   _loadEncoded(fileName) {
-    const chunkSize = 64;
+    const chunkSize = 1024 * 1024; // 1 Mb
     const fd = fs.openSync(fileName, 'r+');
     let bytesRead = 0;
     let currentByte = 0;
