@@ -8,6 +8,12 @@ class Compressor {
   }
 
   create(inputFile) {
+    const frequency = this._getFrequency(inputFile);
+    const codeSize = Math.ceil(Math.log(frequency.length) / Math.log(2));
+    this._createCode(frequency, codeSize);
+  }
+
+  _getFrequency(inputFile) {
     const input = fs
       .readFileSync(inputFile, 'utf8')
       .split('\n')[0];
@@ -22,22 +28,26 @@ class Compressor {
       }
     });
 
-    const keys = Object.keys(frequency);
-    this._code = Object.defineProperty({}, 'size', {
-      value: Math.ceil(Math.log(keys.length) / Math.log(2)),
-      enumerable: false
-    });
-
-    const sortedFrequency = keys
+    return Object
+      .keys(frequency)
       .map(key => ({
         char: key,
         frequency: frequency[key]
       }))
-      .sort((a, b) => {
-        if (a.frequency > b.frequency) return -1;
-        if (a.frequency === b.frequency) return 0;
-        if (a.frequency < b.frequency) return 1;
-      });
+      .sort(Compressor._frequencySortCriteria);
+  }
+
+  static _frequencySortCriteria(a, b) {
+    if (a.frequency > b.frequency) return -1;
+    if (a.frequency === b.frequency) return 0;
+    if (a.frequency < b.frequency) return 1;
+  }
+
+  _createCode(sortedFrequency, codeSize) {
+    this._code = Object.defineProperty({}, 'size', {
+      value: codeSize,
+      enumerable: false
+    });
 
     sortedFrequency.forEach((el, index) => {
       this._code[el.char] = new BitArray(this._code.size, index);
@@ -45,41 +55,63 @@ class Compressor {
   }
 
   encode(fileName) {
+    const data = this._createBinaryString(fileName);
+    this._bytes = Compressor._createBytes(data);
+    console.log('Successfully encoded!\n');
+  }
+
+  static _createBytes(data) {
+    const bytesNum = Math.ceil(data.length / 8) + 1;
+    const bytes = new Uint8Array(bytesNum);
+    const tailLength = data.length % 8;
+
+    let i = 0, j = 0;
+    bytes[j++] = tailLength;
+
+    for (; i < data.length && j < bytesNum; i += 8, j++) {
+      const chunk = data.slice(i, i + 8);
+      bytes[j] = new BitArray(8, chunk).toNumber();
+    }
+
+    if (tailLength) {
+      const chunk = data.slice(i, i + tailLength);
+      bytes[j] = new BitArray(tailLength, chunk).toNumber();
+    }
+
+    return bytes;
+  }
+
+  _createBinaryString(fileName) {
     const inputChars = fs
       .readFileSync(fileName, 'utf8')
       .split('\n')[0]
       .split('');
 
-    const data = inputChars
+    return inputChars
       .map(char => this._code[char].toString())
       .join("");
-
-    const bytesNum = Math.ceil(data.length / 8) + 1;
-    this._bytes = new Uint8Array(bytesNum);
-    const tailLength = data.length % 8;
-
-    let i = 0, j = 0;
-    this._bytes[j++] = tailLength;
-
-    for (; i < data.length && j < bytesNum; i += 8, j++) {
-      const chunk = data.slice(i, i + 8);
-      this._bytes[j] = new BitArray(8, chunk).toNumber();
-    }
-
-    if (tailLength) {
-      const chunk = data.slice(i, i + tailLength);
-      this._bytes[j] = new BitArray(tailLength, chunk).toNumber();
-    }
-
-    console.log('Successfully encoded!\n');
   }
 
   decode(outputName) {
-    console.log("Decoding...\n");
+    console.log("Decoding...");
+    const data = this._resolveBytes();
+    const reversedCode = {};
+
+    for (let key in this._code) {
+      if (this._code.hasOwnProperty(key)) {
+        const value = this._code[key].toString();
+        reversedCode[value] = key;
+      }
+    }
+
+    const decoded = this._decodeBinaryString(data, reversedCode);
+    fs.writeFileSync(outputName, decoded);
+    console.log(`Decoded text fragment: \n${decoded.slice(0, 300)}${decoded.length > 300 ? '...' : ''}`);
+  }
+
+  _resolveBytes() {
     const tailLength = this._bytes[0];
     let data = '';
-    let decoded = '';
-
     let endPoint = tailLength ? this._bytes.length - 1 : this._bytes.length;
 
     for (let i = 1; i < endPoint; i++) {
@@ -90,14 +122,11 @@ class Compressor {
       data += new BitArray(tailLength, this._bytes[this._bytes.length - 1]).toString();
     }
 
-    const reversedCode = {};
-    for (let key in this._code) {
-      if (this._code.hasOwnProperty(key)) {
-        const value = this._code[key].toString();
-        reversedCode[value] = key;
-      }
-    }
+    return data;
+  }
 
+  _decodeBinaryString(data, reversedCode) {
+    let decoded = '';
     for (let i = 0; i < data.length; i += this._code.size) {
       const chunk = data.slice(i, i + this._code.size);
       if (reversedCode.hasOwnProperty(chunk)) {
@@ -105,8 +134,7 @@ class Compressor {
       }
     }
 
-    fs.writeFileSync(outputName, decoded);
-    console.log(`Decoded text fragment: \n${decoded.slice(0, 300)}...`);
+    return decoded;
   }
 
   save(fileName, codeFileName) {
