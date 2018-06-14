@@ -5,6 +5,7 @@ class Compressor {
   constructor() {
     this._code = {};
     this._bytes = null;
+    this._reverseWithNumbers = false;
   }
 
   create(inputFile) {
@@ -97,9 +98,16 @@ class Compressor {
     const data = this._resolveBytes();
     const reversedCode = {};
 
+    let keyFunction;
+    if (this._reverseWithNumbers) {
+      keyFunction = el => el.toNumber();
+    } else {
+      keyFunction = el => el.toString();
+    }
+
     for (let key in this._code) {
       if (this._code.hasOwnProperty(key)) {
-        const value = this._code[key].toString();
+        const value = keyFunction(this._code[key]);
         reversedCode[value] = key;
       }
     }

@@ -1,5 +1,6 @@
 const Compressor = require('./src/Compressor');
 const HuffmanCompressor = require('./src/HuffmanCompressor');
+const LZWCompressor = require('./src/LZWCompressor');
 
 const fileName = 'data/norm_wiki_sample.txt';
 const encodedName = 'encoded';
@@ -24,4 +25,9 @@ const testHuffmanCompressor = () => {
   test(hc);
 };
 
-testHuffmanCompressor();
+const testLZWCompressor = () => {
+  const lzw = new LZWCompressor();
+  test(lzw);
+};
+
+testLZWCompressor();
